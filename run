@@ -1,0 +1,76 @@
+#! /bin/bash
+
+source .env
+
+echo "DB: ${DATABASE_URL}"
+
+run_sql_files() {
+    local dir="$1"
+    local direction="$2"
+
+    if [[ -z "$dir" ]]; then
+        echo "Usage: run_migrations <directory> <up|down>"
+        return 1
+    fi
+
+    if [[ -z "$DATABASE_URL" ]]; then
+        echo "Error: DATABASE_URL is not set."
+        return 1
+    fi
+
+    # # Validate direction argument
+    # if [[ "$direction" != "up" && "$direction" != "down" ]]; then
+    #     echo "Error: Direction must be 'up' or 'down'."
+    #     return 1
+    # fi
+
+    # Set file filter and sort order
+    local pattern="*${direction}.sql"
+    local sort_order="sort"
+    [[ "$direction" == "down" ]] && sort_order="sort -r"
+
+    # Find and sort migration files
+    local files
+    files=$(find "$dir" -type f -name "$pattern" | $sort_order)
+
+    if [[ -z "$files" ]]; then
+        echo "No migration files found in $dir for direction: $direction"
+        return 1
+    fi
+
+    # Run migrations
+    for file in $files; do
+        echo "Running migration: $file"
+        psql "$DATABASE_URL" -f "$file"
+
+        if [[ $? -ne 0 ]]; then
+            echo "Error executing migration: $file"
+            return 1
+        fi
+    done
+
+    echo "All $direction migrations applied successfully."
+}
+
+case $1 in
+  "db:migrate")
+    case $2 in
+      "up")
+        echo "running db:migrations"
+        run_sql_files "./database/migrations/" "up"
+      ;;
+      "down")
+        echo "rolling back db:migrations"
+        run_sql_files "./database/migrations/" "down"
+      ;;
+    esac
+  ;;
+  "db:seed")
+    echo "running db:seeds"
+    run_sql_files "./database/seeds/" "seed"
+  ;;
+  *)
+    echo "unsupported  or missing argument: $1"
+  ;;
+esac
+
