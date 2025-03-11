@@ -1,7 +1,7 @@
 import app/db
-import app/router/error
+import app/util/api
+import app/util/error
 import app/web
-import gleam/io
 
 import gleam/http.{Get}
 import gleam/json
@@ -9,9 +9,9 @@ import gleam/list
 import gleam/result
 import wisp.{type Request, type Response}
 
-pub fn handle(req: Request, ctx: web.Context) -> Response {
-  case wisp.path_segments(req) {
-    ["conversations"] -> handle_conversations(req, ctx)
+pub fn handle(path: List(string), req: Request, ctx: web.Context) -> Response {
+  case path {
+    [] -> handle_conversations(req, ctx)
     _ -> wisp.not_found()
   }
 }
@@ -23,35 +23,29 @@ fn handle_conversations(req: Request, ctx: web.Context) -> Response {
   }
 }
 
-fn get_user_id(req: Request) {
-  case wisp.get_query(req) |> list.key_find("user_id") {
+fn get_param(query: List(#(String, String)), key: String) {
+  case query |> list.key_find(key) {
     Ok(user_id) -> Ok(user_id)
-    _ -> Error(#("user_id is required", 422))
+    _ -> error.input_error("user_id is required")
   }
 }
 
 fn handle_get_conversations(req: Request, ctx: web.Context) -> Response {
   let result = {
-    use user_id <- result.try(get_user_id(req))
-    let conversations =
-      db.fetch_conversations(ctx.db, user_id)
-      |> result.unwrap([])
-      |> list.map(fn(conversation) {
-        json.object([
-          #("id", json.string(conversation.id)),
-          #("name", json.nullable(conversation.name, of: json.string)),
-        ])
-      })
-    json.object([#("data", json.preprocessed_array(conversations))])
-    |> json.to_string_tree
+    use user_id <- result.try(
+      req
+      |> wisp.get_query()
+      |> get_param("user_id"),
+    )
+    db.fetch_conversations(ctx.db, user_id)
+    |> result.unwrap([])
+    |> list.map(api.conversation_to_json)
+    |> json.preprocessed_array
     |> Ok
   }
 
   case result {
-    Ok(data) -> wisp.json_response(data, 200)
-    Error(#(err, code)) -> {
-      io.debug(err)
-      wisp.json_response(error.to_json_string(err), code)
-    }
+    Ok(data) -> api.json(data)
+    Error(err) -> error.json(err)
   }
 }
