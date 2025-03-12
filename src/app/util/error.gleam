@@ -11,6 +11,8 @@ pub type Error {
   InvariantError(String)
   DecodeError(List(decode.DecodeError))
   InternalError
+  UnauthorizedError
+  ForbiddenError
 }
 
 pub fn input_error(msg: String) {
@@ -33,6 +35,14 @@ pub fn internal_error() {
   Error(InternalError)
 }
 
+pub fn unauthorized() {
+  UnauthorizedError
+}
+
+pub fn forbidden() {
+  ForbiddenError
+}
+
 fn to_json_string(msg: String) -> string_tree.StringTree {
   json.to_string_tree(json.object([#("error", json.string(msg))]))
 }
@@ -41,6 +51,8 @@ pub fn json(err: Error) -> Response {
   io.debug(err)
   case err {
     InputError(err) -> wisp.json_response(to_json_string(err), 422)
+    UnauthorizedError -> wisp.json_response(to_json_string("unauthorized"), 401)
+    ForbiddenError -> wisp.json_response(to_json_string("forbidden"), 403)
     _ -> wisp.json_response(to_json_string("something went wrong"), 500)
   }
 }

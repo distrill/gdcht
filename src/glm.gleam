@@ -3,6 +3,7 @@ import app/web
 
 import envoy
 import gleam/erlang/process
+import gleam/option.{None}
 import gleam/result
 import mist
 import pog
@@ -24,7 +25,7 @@ pub fn main() {
     |> fn(config) { pog.Config(..config, rows_as_map: True) }
     |> pog.connect
 
-  let context = web.Context(db)
+  let context = web.Context(db, None)
   let handler = router.handle_request(_, context)
 
   let assert Ok(_) =

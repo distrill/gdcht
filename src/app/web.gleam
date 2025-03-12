@@ -1,8 +1,11 @@
+import app/db
+
+import gleam/option.{type Option}
 import pog
 import wisp
 
 pub type Context {
-  Context(db: pog.Connection)
+  Context(db: pog.Connection, user: Option(db.User))
 }
 
 pub fn middleware(
