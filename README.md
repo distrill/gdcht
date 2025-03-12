@@ -1,1 +1,1 @@
-gleam chat server exploration
+let's build a chat server in gleam
