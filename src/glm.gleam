@@ -15,7 +15,6 @@ pub type User {
 }
 
 pub fn main() {
-  // set logger to print INFO level logs, and other sensible defaults
   wisp.configure_logger()
   let secret_key_base = wisp.random_string(64)
 
@@ -26,7 +25,7 @@ pub fn main() {
     |> pog.connect
 
   let context = web.Context(db, None)
-  let handler = router.handle_request(_, context)
+  let handler = router.handle(_, context)
 
   let assert Ok(_) =
     wisp_mist.handler(handler, secret_key_base)

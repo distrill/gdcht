@@ -39,4 +39,8 @@ CREATE TABLE IF NOT EXISTS "message" (
       REFERENCES "conversation"(id)
 );
 
+CREATE TABLE IF NOT EXISTS "token_blocklist" (
+  id text PRIMARY KEY
+);
+
 COMMIT;

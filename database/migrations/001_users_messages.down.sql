@@ -1,5 +1,7 @@
 BEGIN TRANSACTION;
 
+DROP TABLE IF EXISTS "token_blocklist";
+
 DROP TABLE IF EXISTS "message";
 
 DROP TABLE IF EXISTS "conversation_membership";

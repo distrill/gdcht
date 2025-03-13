@@ -4,27 +4,29 @@ import app/util/error
 import app/web
 
 import beecrypt
+import gleam/bit_array
 import gleam/dynamic
 import gleam/dynamic/decode
 import gleam/http.{Post}
 import gleam/http/request
 import gleam/json
-import gleam/option.{Some}
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import gwt.{type Jwt}
 import ids/nanoid
+import pog
 import wisp.{type Request, type Response}
 
 const secret = "this is the hook."
 
 /// main router function, entry point for authentication endpoints
 pub fn handle(path: List(String), req: Request, ctx: web.Context) -> Response {
-  case path {
-    ["signup"] -> handle_signup(req, ctx)
-    ["login"] -> handle_login(req, ctx)
-    ["logout"] -> handle_logout(req, ctx)
-    _ -> wisp.not_found()
+  case req.method, path {
+    Post, ["signup"] -> handle_post_signup(req, ctx)
+    Post, ["login"] -> handle_post_login(req, ctx)
+    Post, ["logout"] -> handle_post_logout(req, ctx)
+    _, _ -> wisp.not_found()
   }
 }
 
@@ -37,7 +39,8 @@ pub fn authenticate(
   case
     Ok(req)
     |> result.try(get_token_from_request)
-    |> result.try(ensure_token_not_blocked)
+    |> result.try(verify_token)
+    |> result.try(ensure_token_not_blocked(_, ctx.db))
     |> result.try(parse_user_from_token)
   {
     Ok(user) -> {
@@ -64,65 +67,99 @@ fn decode_login_data(body: dynamic.Dynamic) -> Result(LoginData, error.Error) {
   }
 }
 
-fn handle_signup(req: Request, ctx: web.Context) -> Response {
-  case req.method {
-    Post -> handle_post_signup(req, ctx)
-    _ -> wisp.method_not_allowed(allowed: [Post])
-  }
-}
-
-fn handle_login(req: Request, ctx: web.Context) -> Response {
-  case req.method {
-    Post -> handle_post_login(req, ctx)
-    _ -> wisp.method_not_allowed(allowed: [Post])
-  }
-}
-
-fn handle_logout(req: Request, ctx: web.Context) -> Response {
-  case req.method {
-    Post -> handle_post_logout(req, ctx)
-    _ -> wisp.method_not_allowed(allowed: [Post])
+pub fn parse_body(req: Request) -> Result(dynamic.Dynamic, error.Error) {
+  case
+    Ok(req)
+    |> result.try(wisp.read_body_to_bitstring)
+    |> result.try(bit_array.to_string)
+    |> result.try(fn(str) {
+      case json.decode(str, Ok) {
+        Ok(data) -> Ok(data)
+        Error(_) -> Error(Nil)
+      }
+    })
+  {
+    Ok(data) -> Ok(data)
+    _ -> error.input_error("malformed body")
   }
 }
 
 fn handle_post_signup(req: Request, ctx: web.Context) -> Response {
-  use body <- wisp.require_json(req)
-
-  let result = {
-    use data <- result.try(decode_login_data(body))
-    use user <- result.try(db.create_user(
-      ctx.db,
-      db.NewUser(data.username, beecrypt.hash(data.pw)),
-    ))
-
-    Ok(json.object([#("token", json.string(gen_jwt(user)))]))
-  }
-
-  case result {
+  case
+    Ok(req)
+    |> result.try(parse_body)
+    |> result.try(decode_login_data)
+    |> result.try(create_user(_, ctx.db))
+    |> result.map(gen_jwt)
+  {
     Ok(data) -> api.json(data)
     Error(err) -> error.json(err)
   }
 }
 
-fn handle_post_login(_req: Request, _ctx: web.Context) -> Response {
-  wisp.not_found()
+fn handle_post_login(req: Request, ctx: web.Context) -> Response {
+  case
+    Ok(req)
+    |> result.try(parse_body)
+    |> result.try(decode_login_data)
+    |> result.try(verify_credentials(_, ctx.db))
+    |> result.map(gen_jwt)
+  {
+    Ok(data) -> api.json(data)
+    Error(err) -> error.json(err)
+  }
 }
 
-fn handle_post_logout(_req: Request, _ctx: web.Context) -> Response {
-  wisp.not_found()
+fn handle_post_logout(req: Request, ctx: web.Context) -> Response {
+  case
+    Ok(req)
+    |> result.try(get_token_from_request)
+    |> result.try(verify_token)
+    |> result.try(get_token_id)
+    |> result.try(db.create_token_blocklist(ctx.db, _))
+  {
+    Ok(_) -> api.json(json.string("ok"))
+    Error(err) -> error.json(err)
+  }
+}
+
+fn create_user(login_data: LoginData, db: pog.Connection) {
+  db.create_user(
+    db,
+    db.NewUser(login_data.username, beecrypt.hash(login_data.pw)),
+  )
+}
+
+// returns a user from the database if password matches
+fn verify_credentials(
+  login_data: LoginData,
+  db: pog.Connection,
+) -> Result(db.User, error.Error) {
+  Ok(db)
+  |> result.try(db.fetch_user(_, login_data.username))
+  |> result.try(compare_passwords(_, login_data.pw))
+}
+
+fn compare_passwords(user: db.User, pw: String) -> Result(db.User, error.Error) {
+  case beecrypt.verify(pw, user.pw_hash) {
+    True -> Ok(user)
+    False -> Error(error.unauthorized())
+  }
 }
 
 fn gen_jwt(user: db.User) {
-  gwt.new()
-  |> gwt.set_jwt_id(nanoid.generate())
-  |> gwt.set_payload_claim(
-    "user",
-    json.object([
-      #("id", json.string(user.id)),
-      #("username", json.string(user.username)),
-    ]),
-  )
-  |> gwt.to_signed_string(gwt.HS256, secret)
+  let token =
+    gwt.new()
+    |> gwt.set_jwt_id(nanoid.generate())
+    |> gwt.set_payload_claim(
+      "user",
+      json.object([
+        #("id", json.string(user.id)),
+        #("username", json.string(user.username)),
+      ]),
+    )
+    |> gwt.to_signed_string(gwt.HS256, secret)
+  json.object([#("token", json.string(token))])
 }
 
 fn parse_token(verified: Jwt(gwt.Verified)) {
@@ -137,9 +174,16 @@ fn parse_token(verified: Jwt(gwt.Verified)) {
   )
 }
 
-fn parse_user_from_token(token: String) -> Result(db.User, error.Error) {
+fn verify_token(token: String) -> Result(gwt.Jwt(gwt.Verified), error.Error) {
   Ok(token)
   |> result.try(gwt.from_signed_string(_, secret))
+  |> result.replace_error(error.unauthorized())
+}
+
+fn parse_user_from_token(
+  token: gwt.Jwt(gwt.Verified),
+) -> Result(db.User, error.Error) {
+  Ok(token)
   |> result.try(parse_token)
   |> result.replace_error(error.unauthorized())
 }
@@ -162,7 +206,32 @@ fn get_token_from_request(req: Request) -> Result(String, error.Error) {
   })
 }
 
-fn ensure_token_not_blocked(token: String) -> Result(String, error.Error) {
-  // read from token blocklist table, updated on logout
-  Ok(token)
+fn is_token_blocklist(
+  id: String,
+  db: pog.Connection,
+) -> Result(Bool, error.Error) {
+  use maybe_token <- result.try(db.fetch_token_blocklist(db, id))
+  case maybe_token {
+    Some(_) -> Ok(True)
+    None -> Ok(False)
+  }
+}
+
+fn get_token_id(token: gwt.Jwt(gwt.Verified)) -> Result(String, error.Error) {
+  gwt.get_jwt_id(token) |> result.replace_error(error.unauthorized())
+}
+
+fn ensure_token_not_blocked(
+  token: gwt.Jwt(gwt.Verified),
+  db: pog.Connection,
+) -> Result(gwt.Jwt(gwt.Verified), error.Error) {
+  let is_token_blocklist =
+    Ok(token)
+    |> result.try(get_token_id)
+    |> result.try(is_token_blocklist(_, db))
+
+  case is_token_blocklist {
+    Ok(False) -> Ok(token)
+    _ -> Error(error.unauthorized())
+  }
 }

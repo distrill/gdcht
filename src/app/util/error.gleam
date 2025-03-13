@@ -10,7 +10,8 @@ pub type Error {
   DatabaseError(pog.QueryError)
   InvariantError(String)
   DecodeError(List(decode.DecodeError))
-  InternalError
+  JsonDecodeError(json.DecodeError)
+  InternalError(String)
   UnauthorizedError
   ForbiddenError
 }
@@ -31,8 +32,16 @@ pub fn decode_error(errs: List(decode.DecodeError)) {
   Error(DecodeError(errs))
 }
 
-pub fn internal_error() {
-  Error(InternalError)
+pub fn json_decode_error(err: json.DecodeError) {
+  Error(JsonDecodeError(err))
+}
+
+pub fn internal_error(msg: String) {
+  Error(InternalError(msg))
+}
+
+pub fn internal_error_from_message(msg: String) {
+  Error(msg)
 }
 
 pub fn unauthorized() {
