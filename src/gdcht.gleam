@@ -1,7 +1,7 @@
 import app/router/router
 import app/web
+import config
 
-import envoy
 import gleam/erlang/process
 import gleam/option.{None}
 import gleam/result
@@ -19,7 +19,7 @@ pub fn main() {
   let secret_key_base = wisp.random_string(64)
 
   let db =
-    pog.url_config(envoy.get("DATABASE_URL") |> result.unwrap(""))
+    pog.url_config(config.database_url())
     |> result.unwrap(pog.default_config())
     |> fn(config) { pog.Config(..config, rows_as_map: True) }
     |> pog.connect

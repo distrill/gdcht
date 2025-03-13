@@ -2,6 +2,7 @@ import app/db
 import app/util/api
 import app/util/error
 import app/web
+import config
 
 import beecrypt
 import gleam/bit_array
@@ -17,8 +18,6 @@ import gwt.{type Jwt}
 import ids/nanoid
 import pog
 import wisp.{type Request, type Response}
-
-const secret = "this is the hook."
 
 /// main router function, entry point for authentication endpoints
 pub fn handle(path: List(String), req: Request, ctx: web.Context) -> Response {
@@ -158,7 +157,7 @@ fn gen_jwt(user: db.User) {
         #("username", json.string(user.username)),
       ]),
     )
-    |> gwt.to_signed_string(gwt.HS256, secret)
+    |> gwt.to_signed_string(gwt.HS256, config.auth_secret())
   json.object([#("token", json.string(token))])
 }
 
@@ -176,7 +175,7 @@ fn parse_token(verified: Jwt(gwt.Verified)) {
 
 fn verify_token(token: String) -> Result(gwt.Jwt(gwt.Verified), error.Error) {
   Ok(token)
-  |> result.try(gwt.from_signed_string(_, secret))
+  |> result.try(gwt.from_signed_string(_, config.auth_secret()))
   |> result.replace_error(error.unauthorized())
 }
 
