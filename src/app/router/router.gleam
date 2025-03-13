@@ -4,12 +4,14 @@ import app/web
 
 import wisp.{type Request, type Response}
 
-pub fn handle(req: Request, ctx: web.Context) -> Response {
-  use req <- web.middleware(req)
+pub fn handle(path: List(String), ctx: web.Context) {
+  fn(req: Request) -> Response {
+    use req <- web.middleware(req)
 
-  case req.method, wisp.path_segments(req) {
-    _, ["auth", ..path] -> auth.handle(path, req, ctx)
-    _, ["conversations", ..path] -> conversations.handle(path, req, ctx)
-    _, _ -> wisp.not_found()
+    case req.method, path {
+      _, ["auth", ..path] -> auth.handle(path, req, ctx)
+      _, ["conversations", ..path] -> conversations.handle(path, req, ctx)
+      _, _ -> wisp.not_found()
+    }
   }
 }

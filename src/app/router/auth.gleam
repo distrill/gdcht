@@ -29,6 +29,45 @@ pub fn handle(path: List(String), req: Request, ctx: web.Context) -> Response {
   }
 }
 
+fn handle_post_signup(req: Request, ctx: web.Context) -> Response {
+  case
+    Ok(req)
+    |> result.try(parse_body)
+    |> result.try(decode_login_data)
+    |> result.try(create_user(_, ctx.db))
+    |> result.map(gen_jwt)
+  {
+    Ok(data) -> api.json(data)
+    Error(err) -> error.json(err)
+  }
+}
+
+fn handle_post_login(req: Request, ctx: web.Context) -> Response {
+  case
+    Ok(req)
+    |> result.try(parse_body)
+    |> result.try(decode_login_data)
+    |> result.try(verify_credentials(_, ctx.db))
+    |> result.map(gen_jwt)
+  {
+    Ok(data) -> api.json(data)
+    Error(err) -> error.json(err)
+  }
+}
+
+fn handle_post_logout(req: Request, ctx: web.Context) -> Response {
+  case
+    Ok(req)
+    |> result.try(get_token_from_request)
+    |> result.try(verify_token)
+    |> result.try(get_token_id)
+    |> result.try(db.create_token_blocklist(ctx.db, _))
+  {
+    Ok(_) -> api.json(json.string("ok"))
+    Error(err) -> error.json(err)
+  }
+}
+
 /// middleware to gate endpoints behind authorization
 pub fn authenticate(
   req: Request,
@@ -80,45 +119,6 @@ pub fn parse_body(req: Request) -> Result(dynamic.Dynamic, error.Error) {
   {
     Ok(data) -> Ok(data)
     _ -> error.input_error("malformed body")
-  }
-}
-
-fn handle_post_signup(req: Request, ctx: web.Context) -> Response {
-  case
-    Ok(req)
-    |> result.try(parse_body)
-    |> result.try(decode_login_data)
-    |> result.try(create_user(_, ctx.db))
-    |> result.map(gen_jwt)
-  {
-    Ok(data) -> api.json(data)
-    Error(err) -> error.json(err)
-  }
-}
-
-fn handle_post_login(req: Request, ctx: web.Context) -> Response {
-  case
-    Ok(req)
-    |> result.try(parse_body)
-    |> result.try(decode_login_data)
-    |> result.try(verify_credentials(_, ctx.db))
-    |> result.map(gen_jwt)
-  {
-    Ok(data) -> api.json(data)
-    Error(err) -> error.json(err)
-  }
-}
-
-fn handle_post_logout(req: Request, ctx: web.Context) -> Response {
-  case
-    Ok(req)
-    |> result.try(get_token_from_request)
-    |> result.try(verify_token)
-    |> result.try(get_token_id)
-    |> result.try(db.create_token_blocklist(ctx.db, _))
-  {
-    Ok(_) -> api.json(json.string("ok"))
-    Error(err) -> error.json(err)
   }
 }
 
