@@ -25,7 +25,7 @@ pub fn handle(path: List(String), req: Request, ctx: web.Context) -> Response {
     Post, ["signup"] -> handle_post_signup(req, ctx)
     Post, ["login"] -> handle_post_login(req, ctx)
     Post, ["logout"] -> handle_post_logout(req, ctx)
-    _, _ -> wisp.not_found()
+    _, _ -> error.handle_not_found()
   }
 }
 

@@ -1,5 +1,5 @@
 import app/db
-import app/router/auth
+import app/router/api/auth
 import app/util/api
 import app/util/error
 import app/web
@@ -15,7 +15,7 @@ pub fn handle(path: List(string), req: Request, ctx: web.Context) -> Response {
 
   case req.method, path {
     Get, [] -> handle_get_conversations(req, ctx)
-    _, _ -> wisp.not_found()
+    _, _ -> error.handle_not_found()
   }
 }
 

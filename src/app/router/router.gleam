@@ -1,17 +1,32 @@
-import app/router/auth
-import app/router/conversations
+import app/router/api/api
+import app/router/ws/ws
+import app/util/error
 import app/web
+import config
 
-import wisp.{type Request, type Response}
+import gleam/http/request.{type Request}
+import gleam/http/response.{type Response}
+import mist.{type Connection, type ResponseData}
+import wisp
 
-pub fn handle(path: List(String), ctx: web.Context) {
-  fn(req: Request) -> Response {
-    use req <- web.middleware(req)
+import wisp/wisp_mist
 
-    case req.method, path {
-      _, ["auth", ..path] -> auth.handle(path, req, ctx)
-      _, ["conversations", ..path] -> conversations.handle(path, req, ctx)
-      _, _ -> wisp.not_found()
+pub fn listen(ctx: web.Context) {
+  let websocket_handler = ws.handle()
+  let assert Ok(_) =
+    fn(req: Request(Connection)) -> Response(ResponseData) {
+      case request.path_segments(req) {
+        ["api", ..path] ->
+          wisp_mist.handler(api.handle(path, ctx), config.session_secret())(req)
+        ["ws", ..] -> websocket_handler(req)
+        _ -> wisp_mist.handler(fallback, config.session_secret())(req)
+      }
     }
-  }
+    |> mist.new
+    |> mist.port(config.port())
+    |> mist.start_http
+}
+
+fn fallback(_req: wisp.Request) -> wisp.Response {
+  error.handle_not_found()
 }

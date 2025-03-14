@@ -25,6 +25,7 @@ dotenv = ">= 3.1.0 and < 4.0.0"
 beecrypt = ">= 0.3.1 and < 1.0.0"
 gwt = ">= 2.0.0 and < 3.0.0"
 ids = ">= 0.14.0 and < 1.0.0"
+gleam_otp = ">= 0.16.1 and < 1.0.0"
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
