@@ -50,6 +50,7 @@ gleam_json = { version = ">= 2.3.0 and < 3.0.0" }
 gleam_otp = { version = ">= 0.16.1 and < 1.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
+glisten = { version = ">= 7.0.1 and < 8.0.0" }
 gwt = { version = ">= 2.0.0 and < 3.0.0" }
 ids = { version = ">= 0.14.0 and < 1.0.0" }
 mist = { version = ">= 4.0.7 and < 5.0.0" }

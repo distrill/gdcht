@@ -1,4 +1,5 @@
 import gleam/dynamic/decode
+import gleam/io
 import gleam/json
 import gleam/string
 import gleam/string_tree
@@ -62,7 +63,8 @@ fn to_json_string(msg: String) -> string_tree.StringTree {
 }
 
 pub fn json(err: Error) -> Response {
-  wisp.log_warning(string.inspect(err))
+  // wisp.log_warning("err!" <> string.inspect(err))
+  io.debug(err)
   case err {
     InputError(err) -> wisp.json_response(to_json_string(err), 422)
     UnauthorizedError -> wisp.json_response(to_json_string("unauthorized"), 401)
