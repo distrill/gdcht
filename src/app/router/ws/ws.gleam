@@ -1,5 +1,4 @@
 import app/router/ws/pool
-import gleam/dict
 import gleam/erlang/process
 import gleam/function
 import gleam/http/request.{type Request}
@@ -10,7 +9,7 @@ import mist.{type Connection}
 import wisp
 
 pub fn handle() {
-  let assert Ok(broadcaster) = actor.start(dict.new(), pool.handle_message)
+  let broadcaster = pool.start()
   fn(req: Request(Connection)) {
     mist.websocket(
       request: req,
