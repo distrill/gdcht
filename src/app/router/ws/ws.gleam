@@ -68,7 +68,7 @@ fn handle_message(broadcaster) {
       mist.Binary(_) -> {
         actor.continue(state)
       }
-      mist.Custom(pool.GdChtBroadcast(msg)) -> {
+      mist.Custom(pool.BroadcastMessage(msg)) -> {
         let _ = mist.send_text_frame(conn, msg)
         actor.continue(state)
       }

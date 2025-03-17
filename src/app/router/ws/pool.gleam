@@ -3,17 +3,17 @@ import gleam/erlang/process.{type Subject}
 import gleam/list
 import gleam/otp/actor
 
-pub type GdChtMessage {
-  GdChtBroadcast(String)
+pub type BroadcastMessage {
+  BroadcastMessage(String)
 }
 
 type State =
-  Dict(String, Subject(GdChtMessage))
+  Dict(String, Subject(BroadcastMessage))
 
 pub type Message {
   Shutdown
 
-  Connect(data: #(String, Subject(GdChtMessage)), reply_with: Subject(Bool))
+  Connect(data: #(String, Subject(BroadcastMessage)), reply_with: Subject(Bool))
 
   Disconnect(id: String, reply_with: Subject(Bool))
 
@@ -46,7 +46,7 @@ pub fn handle_message(
       |> list.each(fn(connection) {
         let #(id, subject) = connection
         case sender_id == id {
-          False -> process.send(subject, GdChtBroadcast(message))
+          False -> process.send(subject, BroadcastMessage(message))
           True -> Nil
         }
       })
